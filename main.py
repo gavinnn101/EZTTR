@@ -22,6 +22,8 @@ class MultiControl:
         # Create a set to keep track of currently pressed keys
         self.pressed_keys = set()
 
+        self.stopped = True
+
 ###############
 # GAME WINDOW #
 ###############
@@ -109,9 +111,18 @@ class MultiControl:
         active_window_title = win32gui.GetWindowText(active_window_handle)
 
         if active_window_title == self.game_window_name:
-            for handle in self.game_handles:
-                if handle != active_window_handle:
-                    self.press_key(handle, key_pressed)
+            if key_pressed == PAUSE_KEY:
+                if self.stopped:
+                    logger.info("Resuming mirroring")
+                    self.stopped = False
+                else:
+                    logger.info("Pausing mirroring")
+                    self.stopped = True
+            # Mirror the keypress if not paused.
+            if not self.stopped:
+                for handle in self.game_handles:
+                    if handle != active_window_handle:
+                        self.press_key(handle, key_pressed)
 
 
     def on_release(self, key):
@@ -137,6 +148,8 @@ class MultiControl:
 ##################
 
     def on_click(self, x, y, button, pressed):
+        if self.stopped:
+            return
         active_window_handle = win32gui.GetForegroundWindow()
         active_window_title = win32gui.GetWindowText(active_window_handle)
 
@@ -180,18 +193,32 @@ class MultiControl:
 
 
     def start_listeners(self, key_listener=True, mouse_listener=True):
-        started_listeners = []
+        logger.info("Starting listeners")
+        self.stopped = False
         if key_listener:
             logger.info("Starting key listener")
             self.key_listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
             self.key_listener.start()
-            started_listeners.append(("key_listener", self.key_listener))
         if mouse_listener:
             logger.info("Starting mouse listener")
             self.mouse_listener = MouseListener(on_click=self.on_click)
             self.mouse_listener.start()
-            started_listeners.append(("mouse_listener", self.mouse_listener))
 
+
+    def stop_listeners(self):
+        logger.info("Stopping listeners")
+        self.stopped = True
+        if self.key_listener:
+            logger.info("Stopping key listener")
+            self.key_listener.stop()
+        if self.mouse_listener:
+            logger.info("Stopping mouse listener")
+            self.mouse_listener.stop()
+
+
+PAUSE_KEY = "`"
+USE_KEY_LISTENER = True
+USE_MOUSE_LISTENER = True
 
 def main():
     # Set log level to INFO. Change to DEBUG if needed.
@@ -201,15 +228,14 @@ def main():
     # Start the key and mouse listeners for multiboxing.
     controller = MultiControl()
     controller.bring_game_windows_to_foreground(controller.game_handles)
-    controller.start_listeners(key_listener=True, mouse_listener=True)
+    controller.start_listeners(key_listener=USE_KEY_LISTENER, mouse_listener=USE_MOUSE_LISTENER)
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Exiting...")
-        controller.key_listener.stop()
-        controller.mouse_listener.stop()
+        controller.stop_listeners()
 
 
 if __name__ == "__main__":
