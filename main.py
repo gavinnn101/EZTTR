@@ -1,4 +1,6 @@
+import ctypes
 import sys
+import time
 import win32gui
 import win32con
 import win32api
@@ -10,6 +12,7 @@ from pynput.mouse import Listener as MouseListener, Button as MouseButton
 
 from key_map import KEY_MAP
 
+
 class MultiControl:
     def __init__(self):
         self.game_window_name = "Toontown Rewritten"
@@ -18,7 +21,6 @@ class MultiControl:
 
         # Create a set to keep track of currently pressed keys
         self.pressed_keys = set()
-
 
 ###############
 # GAME WINDOW #
@@ -51,6 +53,28 @@ class MultiControl:
         border_height = win32api.GetSystemMetrics(win32con.SM_CYSIZEFRAME)
         titlebar_height = win32api.GetSystemMetrics(win32con.SM_CYCAPTION)
         return border_width, border_height, titlebar_height
+
+
+    def bring_game_windows_to_foreground(self, game_handles):
+        for handle in game_handles:
+            logger.info(f"Bringing game window (handle: {handle}) to foreground")
+
+            # Store the original foreground window
+            original_foreground_window = win32gui.GetForegroundWindow()
+
+            # Set the game window as the foreground window temporarily
+            win32gui.SetForegroundWindow(handle)
+            time.sleep(0.1)
+
+            # Simulate Alt+Tab to bring the game window to the foreground
+            ctypes.windll.user32.keybd_event(win32con.VK_MENU, 0, 0, 0)
+            ctypes.windll.user32.keybd_event(win32con.VK_TAB, 0, 0, 0)
+            ctypes.windll.user32.keybd_event(win32con.VK_TAB, 0, win32con.KEYEVENTF_KEYUP, 0)
+            ctypes.windll.user32.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+
+            # Restore the original foreground window
+            win32gui.SetForegroundWindow(original_foreground_window)
+            time.sleep(0.5)  # Add a small delay between bringing each window to the foreground
 
 
     def press_key(self, handle, hotkey):
@@ -108,7 +132,6 @@ class MultiControl:
                 if handle != active_window_handle:
                     self.release_key(handle, key_released)
 
-
 ##################
 # MOUSE LISTENER #
 ##################
@@ -138,7 +161,6 @@ class MultiControl:
                     self.release_mouse_button(handle, button, relative_x, relative_y)
 
 
-
     def press_mouse_button(self, handle, button, x, y):
         lParam = win32api.MAKELONG(x, y)
 
@@ -146,6 +168,7 @@ class MultiControl:
             win32gui.SendMessage(handle, win32con.WM_LBUTTONDOWN, win32con.MK_LBUTTON, lParam)
         elif button == MouseButton.right:
             win32gui.SendMessage(handle, win32con.WM_RBUTTONDOWN, win32con.MK_RBUTTON, lParam)
+
 
     def release_mouse_button(self, handle, button, x, y):
         lParam = win32api.MAKELONG(x, y)
@@ -156,23 +179,18 @@ class MultiControl:
             win32gui.SendMessage(handle, win32con.WM_RBUTTONUP, win32con.MK_RBUTTON, lParam)
 
 
-
-    
     def start_listeners(self, key_listener=True, mouse_listener=True):
         started_listeners = []
         if key_listener:
+            logger.info("Starting key listener")
             self.key_listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
             self.key_listener.start()
             started_listeners.append(("key_listener", self.key_listener))
         if mouse_listener:
+            logger.info("Starting mouse listener")
             self.mouse_listener = MouseListener(on_click=self.on_click)
             self.mouse_listener.start()
             started_listeners.append(("mouse_listener", self.mouse_listener))
-
-        for listener_name, listener in started_listeners:
-            logger.info(f"Joining {listener_name} thread")
-            listener.join()
-
 
 
 def main():
@@ -182,7 +200,16 @@ def main():
 
     # Start the key and mouse listeners for multiboxing.
     controller = MultiControl()
+    controller.bring_game_windows_to_foreground(controller.game_handles)
     controller.start_listeners(key_listener=True, mouse_listener=True)
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Exiting...")
+        controller.key_listener.stop()
+        controller.mouse_listener.stop()
 
 
 if __name__ == "__main__":
