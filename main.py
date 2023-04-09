@@ -81,7 +81,11 @@ class MultiControl:
 
     def press_key(self, handle, hotkey):
         """Gets key map for hotkey, presses the hotkey, and waits a randomized fraction of a second."""
-        keycode = KEY_MAP[hotkey]
+        try:
+            keycode = KEY_MAP[hotkey]
+        except KeyError:
+            logger.error(f"Invalid hotkey: {hotkey}")
+            return
         logger.debug(f"Pressing key: {hotkey} (keycode: {keycode})")
         win32gui.SendMessage(handle, win32con.WM_KEYDOWN, keycode, 0)
 

@@ -3,12 +3,13 @@ import ctypes
 MapVirtualKey = ctypes.windll.user32.MapVirtualKeyW
 
 KEY_MAP = {'backspace': 0x08,
+           'cmd': 0x5B,
            'tab': 0x09,
            'clear': 0x0C,
            'enter': 0x0D,
            'shift': 0x10,
-           'ctrl': 0x11,
-           'alt': 0x12,
+           'ctrl_l': 0x11,
+           'alt_l': 0x12,
            'pause': 0x13,
            'caps_lock': 0x14,
            'esc': 0x1B,
